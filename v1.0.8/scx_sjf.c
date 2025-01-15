@@ -46,4 +46,32 @@ int main(int argc, char **argv)
 {
     struct scx_sjf * skel;
     struct bpf_link * link;
+	int opt;
+
+	libbpf_set_print(libbpf_print_fn);
+	signal(SIGINT, sigint_handler);
+	signal(SIGTERM, sigint_handler);
+
+	skel = SCX_OPS_OPEN(sjf_ops, scx_sjf);
+
+	// Set all variables from BPF file via skeleton here
+	// skel->rodata->slice_ns ** Maybe set the time slice here?
+	skel->rodata->cpu_num = 3;
+
+	while ((opt = getopt(argc, argv, "c:p")) != -1) {
+		switch (opt) {
+			case 'c':
+				skel->rodata->cpu_num = strtoul(optarg, NULL, 0);
+				break;
+			case 'p':
+				skel->struct_ops.sjf_ops->flags |= SCX_OPS_SWITCH_PARTIAL;
+				break;
+			default:
+				fprintf(stderr, help_fmt, basename(argv[0]));
+				return opt != 'h';
+		}
+	}
+
+	SCX_OPS_LOAD(skel, sjf_ops, scx_sjf, uei);
+	link = SCX_OPS_ATTACH(skel, sjf_ops, scx_sjf);
 }
