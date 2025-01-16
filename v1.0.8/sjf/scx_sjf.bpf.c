@@ -1,7 +1,7 @@
 /*
-Shortest Job First (sjf) scheduler.
+Shortest Job First (sjf) scheduler. Version v0.2
 
-This current version (v0.1) of the scheduler makes the following assumptions:
+The version v0.1 of the scheduler makes the following assumptions:
 1) The SCX_OPS_SWITCH_PARTIAL flag is set to ensure that only tasks that have been
 explicitly set to switch to sched-ext will be. Therefore, all tasks that enter the
 scheduler will be started for the first time. In other words, all tasks start
