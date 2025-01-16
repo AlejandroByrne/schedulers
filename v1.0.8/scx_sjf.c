@@ -42,16 +42,37 @@ static void sigint_handler(int dummy)
 	exit_req = 1;
 }
 
+static void read_stats(struct scx_simple *skel, __u64 *stats)
+{
+	int nr_cpus = libbpf_num_possible_cpus();
+	__u64 cnts[2][nr_cpus];
+	__u32 idx;
+
+	memset(stats, 0, sizeof(stats[0]) * 2);
+
+	for (idx = 0; idx < 2; idx++) {
+		int ret, cpu;
+
+		ret = bpf_map_lookup_elem(bpf_map__fd(skel->maps.stats),
+					  &idx, cnts[idx]);
+		if (ret < 0)
+			continue;
+		for (cpu = 0; cpu < nr_cpus; cpu++)
+			stats[idx] += cnts[idx][cpu];
+	}
+}
+
 int main(int argc, char **argv)
 {
     struct scx_sjf * skel;
     struct bpf_link * link;
-	int opt;
+	__u32 opt;
+	__u64 ecode;
 
 	libbpf_set_print(libbpf_print_fn);
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
-
+restart:
 	skel = SCX_OPS_OPEN(sjf_ops, scx_sjf);
 
 	// Set all variables from BPF file via skeleton here
@@ -74,4 +95,17 @@ int main(int argc, char **argv)
 
 	SCX_OPS_LOAD(skel, sjf_ops, scx_sjf, uei);
 	link = SCX_OPS_ATTACH(skel, sjf_ops, scx_sjf);
+
+	while (!exit_req && !UEI_EXITED(skel, uei)) {
+		sleep(1);
+	}
+
+	bpf_link__destroy(link);
+	ecode = UEI_REPORT(skel, uei);
+	scx_sjf__destroy(skel);
+
+	if (UEI_ECODE_RESTART(ecode)) {
+		goto restart;
+	}
+	return 0;
 }
