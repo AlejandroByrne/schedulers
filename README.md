@@ -13,3 +13,9 @@ as that task's vtime (virtual time).
 one of these dispatch queues. The reason there are two is to avoid starvation of the longer jobs. Whether CPUs consume from DSQ_1 or DSQ_2 depends on a switch-like behavior. Consider this scenario:
 
 There are 5 tasks in DSQ_1. This means that currently, all CPUs (let's say there is 1) will take from DSQ_1 when looking for a task to run. When the task stops running (either it finished, or a custom-set time slice runs out), the task (if not finished), will be sent to DSQ_2 -- in order of remaining run time -- to wait for execution. Once DSQ_1 becomes empty, then the "switch" will be flipped, and all CPUs will consume from DSQ_2, and when stopped, all tasks will be sent to DSQ_1. This ensures the order of SJF while still treating all tasks in a round-robin fashion, avoiding starvation of longer tasks.
+
+Notes on testing with scx_sjf:
+- When SCX_SLICE_DFL (20ms) slice time is used, the average tasks per dispatch queue switch is 3. However, once this is changed to
+SCX_SLICE_INF, the average is 9. This makes sense. The longer the time slice, the less frequently tasks can be run through, which
+means it takes longer for the dispatch queue to be emptied, which means there is more time for the other dispatch queue to accumulate
+tasks.

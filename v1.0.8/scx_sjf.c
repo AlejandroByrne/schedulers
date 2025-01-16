@@ -45,12 +45,13 @@ static void sigint_handler(int dummy)
 static void read_stats(struct scx_sjf *skel, __u64 *stats)
 {
 	int nr_cpus = libbpf_num_possible_cpus();
-	__u64 cnts[2][nr_cpus];
+	int num_entries = 4;
+	__u64 cnts[num_entries][nr_cpus];
 	__u32 idx;
 
-	memset(stats, 0, sizeof(stats[0]) * 2);
+	memset(stats, 0, sizeof(stats[0]) * num_entries);
 
-	for (idx = 0; idx < 2; idx++) {
+	for (idx = 0; idx < num_entries; idx++) {
 		int ret, cpu;
 
 		ret = bpf_map_lookup_elem(bpf_map__fd(skel->maps.stats),
@@ -100,7 +101,7 @@ restart:
 		__u64 stats[2];
 
 		read_stats(skel, stats);
-		printf("started=%llu stopped=%llu\n", stats[0], stats[1]);
+		printf("started=%llu stopped=%llu dispatched=%llu switches=%llu\n", stats[0], stats[1], stats[2], stats[3]);
 		sleep(1);
 	}
 

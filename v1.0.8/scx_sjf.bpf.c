@@ -43,7 +43,7 @@ struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__uint(key_size, sizeof(u32));
 	__uint(value_size, sizeof(u64));
-	__uint(max_entries, 2);			/* [num_starts, num_stops] */
+	__uint(max_entries, 4);			/* [num_starts, num_stops] */
 } stats SEC(".maps");
 
 enum {
@@ -76,15 +76,22 @@ void BPF_STRUCT_OPS(sjf_enqueue, struct task_struct *p, u64 enq_flags) {
     // Calculate the remaining time and use that as vtime
 
     // If not using/"consuming" to DSQ_1, discard to DSQ_1 instead
-    scx_bpf_dispatch_vtime(p, !use_dsq_1 ? DSQ_1 : DSQ_2, SCX_SLICE_DFL, vtime, enq_flags);
-    bpf_printk("Task consumed from DSQ_%d\n", !use_dsq_1 ? DSQ_1 : DSQ_2);
+    scx_bpf_dispatch_vtime(p, !use_dsq_1 ? DSQ_1 : DSQ_2, SCX_SLICE_INF, vtime, enq_flags);
+    bpf_printk("Task %d dispatched to DSQ_%d\n", p->pid, use_dsq_1 ? 1 : 2);
 }
 
 void BPF_STRUCT_OPS(sjf_dispatch, s32 cpu, struct task_struct *prev)
 {
     // If using/"consuming" from DSQ_1, then consume from DSQ_1
-	scx_bpf_consume(use_dsq_1 ? DSQ_1 : DSQ_2);
-    bpf_printk("Task dispatched to DSQ_%d\n", use_dsq_1 ? DSQ_1 : DSQ_2);
+	if (scx_bpf_consume(use_dsq_1 ? DSQ_1 : DSQ_2) == true) {
+        stat_inc(2);
+        bpf_printk("Task consumed from DSQ_%d\n", !use_dsq_1 ? 1 : 2);
+    } else {
+        stat_inc(3);
+        use_dsq_1 = !use_dsq_1;
+        bpf_printk("Switched dispatch queues\n");
+    }
+
 }
 
 void BPF_STRUCT_OPS(sjf_running, struct task_struct *p) {
