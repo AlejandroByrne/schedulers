@@ -42,7 +42,7 @@ static void sigint_handler(int dummy)
 	exit_req = 1;
 }
 
-static void read_stats(struct scx_simple *skel, __u64 *stats)
+static void read_stats(struct scx_sjf *skel, __u64 *stats)
 {
 	int nr_cpus = libbpf_num_possible_cpus();
 	__u64 cnts[2][nr_cpus];
@@ -97,6 +97,10 @@ restart:
 	link = SCX_OPS_ATTACH(skel, sjf_ops, scx_sjf);
 
 	while (!exit_req && !UEI_EXITED(skel, uei)) {
+		__u64 stats[2];
+
+		read_stats(skel, stats);
+		printf("started=%llu stopped=%llu\n", stats[0], stats[1]);
 		sleep(1);
 	}
 
